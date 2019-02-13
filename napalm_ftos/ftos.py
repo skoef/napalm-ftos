@@ -20,30 +20,13 @@ import socket
 import types
 
 from napalm.base.helpers import textfsm_extractor
-from napalm.base.helpers import canonical_interface_name, mac, ip
+from napalm.base.helpers import mac, ip
 from napalm.base.netmiko_helpers import netmiko_args
 
 from napalm.base import NetworkDriver
 from napalm.base.exceptions import ConnectionException
 
-# Easier to store these as constants
-MINUTE_SECONDS = 60
-HOUR_SECONDS = 60 * MINUTE_SECONDS
-DAY_SECONDS = 24 * HOUR_SECONDS
-WEEK_SECONDS = 7 * DAY_SECONDS
-YEAR_SECONDS = 365 * DAY_SECONDS
-
-
-# overload canonical_interface_name and apply some FTOS specifics
-def _canonical_interface_name(iface):
-    iface = canonical_interface_name(iface)
-
-    # add whitespace in TenGigabitEthernet names
-    m = re.search(r'^(TenGigabitEthernet)(\d+\/\d+)$', iface)
-    if m:
-        iface = ' '.join(m.groups())
-
-    return iface
+from napalm_ftos.utils import canonical_interface_name, parse_uptime
 
 
 class FTOSDriver(NetworkDriver):
@@ -74,69 +57,6 @@ class FTOSDriver(NetworkDriver):
             return output
         except (socket.error, EOFError) as e:
             raise ConnectionException(str(e))
-
-    @staticmethod
-    def _parse_uptime(uptime_str, short=False):
-        # Extract the uptime string from the given FTOS Device given in form of
-        # 32 week(s), 6 day(s), 10 hour(s), 39 minute(s).
-        #
-        # When short is set to True, expect the format to be either hh:mm:ss or
-        # in form 32w6d10h.
-        #
-        # Return the uptime in seconds as an integer.
-
-        # Initialize to zero
-        (years, weeks, days, hours, minutes, seconds) = (0, 0, 0, 0, 0, 0)
-
-        uptime_str = uptime_str.strip()
-        if short:
-            # until a day has passed, time is expressed in hh:mm:ss
-            # after a day, time is expressed as 1d22h23m or even 20w4d21h
-            # perhaps even in years at some point
-
-            match = re.compile(r'^(\d+):(\d+):(\d+)$').search(uptime_str)
-            if match:
-                (hours, minutes, seconds) = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
-            else:
-                match = re.compile(r'(\d+w)?(\d+d)?(\d+h)?(\d+m)?').search(uptime_str)
-                if match:
-                    for m in match.groups():
-                        if m is None:
-                            continue
-                        # year
-                        elif m.endswith('y'):
-                            years = int(m[:-1])
-                        # week
-                        elif m.endswith('w'):
-                            weeks = int(m[:-1])
-                        # day
-                        elif m.endswith('d'):
-                            days = int(m[:-1])
-                        # hour
-                        elif m.endswith('h'):
-                            hours = int(m[:-1])
-                        # minute
-                        elif m.endswith('m'):
-                            minutes = int(m[:-1])
-        else:
-            # in longer format, uptime is expressed in form of
-            # 32 week(s), 6 day(s), 10 hour(s), 39 minute(s)
-            time_list = uptime_str.split(', ')
-            for element in time_list:
-                if re.search(r"year", element):
-                    years = int(element.split()[0])
-                elif re.search(r"w(ee)?k", element):
-                    weeks = int(element.split()[0])
-                elif re.search(r"day", element):
-                    days = int(element.split()[0])
-                elif re.search(r"h(ou)?r", element):
-                    hours = int(element.split()[0])
-                elif re.search(r"min(ute)?", element):
-                    minutes = int(element.split()[0])
-
-        return (years * YEAR_SECONDS) + (weeks * WEEK_SECONDS) + \
-               (days * DAY_SECONDS) + (hours * HOUR_SECONDS) + \
-               (minutes * MINUTE_SECONDS) + seconds
 
     def open(self):
         """Open a connection to the device."""
@@ -324,7 +244,7 @@ class FTOSDriver(NetworkDriver):
         for line in show_ver.splitlines():
             if line.startswith('Up Time'):
                 uptime_str = line.split(': ')[1]
-                facts['uptime'] = self._parse_uptime(uptime_str)
+                facts['uptime'] = parse_uptime(uptime_str)
             elif line.startswith('Mfg By'):
                 facts['vendor'] = line.split(': ')[1].strip()
             elif ' OS Version' in line:
@@ -390,7 +310,7 @@ class FTOSDriver(NetworkDriver):
                 continue
 
             # get pretty interface name
-            local_intf = _canonical_interface_name(lldp_entry.pop('local_interface'))
+            local_intf = canonical_interface_name(lldp_entry.pop('local_interface'))
 
             # cast some mac addresses
             for k in ['remote_port', 'remote_chassis_id']:
@@ -413,7 +333,7 @@ class FTOSDriver(NetworkDriver):
         mac_table = []
         for idx, entry in enumerate(mac_entries):
             entry['mac'] = mac(entry['mac'])
-            entry['interface'] = _canonical_interface_name(entry['interface'])
+            entry['interface'] = canonical_interface_name(entry['interface'])
             entry['vlan'] = int(entry['vlan'])
             entry['static'] = (entry['static'] == 'Static')
             entry['active'] = (entry['active'] == 'Active')
@@ -463,10 +383,10 @@ class FTOSDriver(NetworkDriver):
                     iface['speed'] = int(speed[0]*1000)
 
             # parse last_flapped
-            iface['last_flapped'] = float(self._parse_uptime(entry['last_flapped'], True))
+            iface['last_flapped'] = float(parse_uptime(entry['last_flapped'], True))
 
             # add interface data to dict
-            local_intf = _canonical_interface_name(entry['iface_name'])
+            local_intf = canonical_interface_name(entry['iface_name'])
             interfaces[local_intf] = iface
 
         return interfaces
@@ -505,7 +425,7 @@ class FTOSDriver(NetworkDriver):
                     iface[dst] = 0
 
             # add interface data to dict
-            local_intf = _canonical_interface_name(entry['iface_name'])
+            local_intf = canonical_interface_name(entry['iface_name'])
             interfaces[local_intf] = iface
 
         return interfaces
