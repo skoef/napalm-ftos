@@ -14,6 +14,7 @@ YEAR_SECONDS = 365 * DAY_SECONDS
 
 # overload canonical_interface_name and apply some FTOS specifics
 def canonical_interface_name(iface):
+    """Convert an interface's name into a fully expanded name with a little bit of FTOS sauce."""
     # all interfaces in base.canonical_map.base_interfaces are capitalized
     # so to make sure we match those names, we capitalize the name before running
     # it against that map
@@ -31,6 +32,7 @@ def canonical_interface_name(iface):
         iface = ' '.join(m.groups())
 
     return iface
+
 
 def _parse_uptime_short(uptime_str):
     # until a day has passed, time is expressed in hh:mm:ss
@@ -66,7 +68,9 @@ def _parse_uptime_short(uptime_str):
 
     return (years, weeks, days, hours, minutes, seconds)
 
+
 def parse_uptime(uptime_str, short=False):
+    """Extract uptime from string, given in various forms."""
     # Extract the uptime string from the given FTOS Device given in form of
     # 32 week(s), 6 day(s), 10 hour(s), 39 minute(s).
     #
