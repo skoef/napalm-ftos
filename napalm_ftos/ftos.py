@@ -26,7 +26,11 @@ from napalm.base.netmiko_helpers import netmiko_args
 from napalm.base import NetworkDriver
 from napalm.base.exceptions import ConnectionException
 
-from napalm_ftos.utils import canonical_interface_name, parse_uptime
+from napalm_ftos.utils import (
+    canonical_interface_name,
+    parse_uptime,
+    transform_lldp_capab
+)
 
 
 class FTOSDriver(NetworkDriver):
@@ -317,6 +321,10 @@ class FTOSDriver(NetworkDriver):
             for k in ['remote_port', 'remote_chassis_id']:
                 if len(lldp_entry[k].strip()) > 0:
                     lldp_entry[k] = mac(lldp_entry[k])
+
+            # transform capabilities
+            for k in ['remote_system_capab', 'remote_system_enable_capab']:
+                lldp_entry[k] = transform_lldp_capab(lldp_entry[k])
 
             # not implemented
             lldp_entry['parent_interface'] = u''

@@ -5,7 +5,11 @@ import pytest
 from napalm.base.test.getters import BaseTestGetters
 from napalm.base.test.getters import wrap_test_cases
 
-from napalm_ftos.utils import canonical_interface_name, parse_uptime
+from napalm_ftos.utils import (
+    canonical_interface_name,
+    parse_uptime,
+    transform_lldp_capab
+)
 
 
 @pytest.mark.usefixtures("set_device_parameters")
@@ -43,6 +47,22 @@ class TestGetter(BaseTestGetters):
 
         for t in tests:
             out = parse_uptime(t[0], t[2])
+            assert out == t[1]
+
+        return {}
+
+    @wrap_test_cases
+    def test_transform_lldp_capab(self, test_case):
+        """Test transform_lldp_capab."""
+        tests = [
+            ['Bridge WLAN Access Point Router Station only', [
+                'bridge', 'wlan-access-point', 'router', 'station',
+            ]],
+            ['Bridge Router', ['bridge', 'router']],
+        ]
+
+        for t in tests:
+            out = transform_lldp_capab(t[0])
             assert out == t[1]
 
         return {}

@@ -105,3 +105,33 @@ def parse_uptime(uptime_str, short=False):
     return (years * YEAR_SECONDS) + (weeks * WEEK_SECONDS) + \
            (days * DAY_SECONDS) + (hours * HOUR_SECONDS) + \
            (minutes * MINUTE_SECONDS) + seconds
+
+
+def transform_lldp_capab(capabilities):
+    """Transform FTOS LLDP capabilities into Napalm generic capabilities."""
+    modes = [
+        ['Repeater', 'repeater'],
+        ['Bridge', 'bridge'],
+        ['WLAN Access Point', 'wlan-access-point'],
+        ['Router', 'router'],
+        ['Telephone', 'telephone'],
+        ['Docsis', 'docsis-cable-device'],
+        ['Station only', 'station'],
+        ['Other', 'other']
+    ]
+
+    capab = []
+
+    # go over each mode and see if it's present
+    while len(capabilities):
+        found = False
+        for mode in modes:
+            if re.search('^%s' % mode[0], capabilities, re.IGNORECASE):
+                capab.append(mode[1])
+                capabilities = re.sub(r'^%s\s*' % mode[0], '', capabilities, re.IGNORECASE)
+                found = True
+
+        if not found:
+            raise Exception('unhandled lldp capability: %s' % capabilities.strip().split(' ')[0])
+
+    return capab
