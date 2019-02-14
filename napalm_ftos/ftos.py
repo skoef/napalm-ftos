@@ -256,6 +256,7 @@ class FTOSDriver(NetworkDriver):
 
         # invoke get_interfaces and list interfaces
         facts['interface_list'] = self.get_interfaces().keys()
+        facts['interface_list'].sort()
 
         # get hostname from running config
         config = self.get_config('running')['running']
