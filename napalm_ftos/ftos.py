@@ -17,7 +17,6 @@
 
 import re
 import socket
-import types
 
 from napalm.base.helpers import textfsm_extractor
 from napalm.base.helpers import mac, ip
@@ -264,8 +263,7 @@ class FTOSDriver(NetworkDriver):
                 facts['model'] = line.split(': ')[1].strip()
 
         # invoke get_interfaces and list interfaces
-        facts['interface_list'] = self.get_interfaces().keys()
-        facts['interface_list'].sort()
+        facts['interface_list'] = sorted(self.get_interfaces().keys())
 
         # get hostname from running config
         config = self.get_config('running')['running']
