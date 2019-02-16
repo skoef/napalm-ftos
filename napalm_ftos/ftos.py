@@ -73,8 +73,12 @@ class FTOSDriver(NetworkDriver):
         """Close the connection to the device."""
         self._netmiko_close()
 
-    def get_arp_table(self):
+    def get_arp_table(self, vrf=u''):
         """FTOS implementation of get_arp_table."""
+        if vrf:
+            msg = "VRF support has not been added for this getter on this platform."
+            raise NotImplementedError(msg)
+
         command = "show arp"
         arp_entries = self._send_command(command)
         arp_entries = textfsm_extractor(self, 'show_arp', arp_entries)
