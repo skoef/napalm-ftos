@@ -22,6 +22,7 @@ import types
 from napalm.base.helpers import textfsm_extractor
 from napalm.base.helpers import mac, ip
 from napalm.base.netmiko_helpers import netmiko_args
+from napalm.base.utils import py23_compat
 
 from napalm.base import NetworkDriver
 from napalm.base.exceptions import ConnectionException
@@ -155,8 +156,8 @@ class FTOSDriver(NetworkDriver):
 
             # make sure all strings are unicode
             for k in entry.keys():
-                if isinstance(entry[k], str):
-                    entry[k] = unicode(entry[k])
+                if isinstance(entry[k], py23_compat.string_types):
+                    entry[k] = py23_compat.text_type(entry[k])
 
             # add neighbor to table
             if entry['remote_as'] not in table[vrf]:
@@ -714,8 +715,8 @@ class FTOSDriver(NetworkDriver):
             for probe in probes:
                 trace[ttl]['probes'][ctr] = {
                     'rtt': float(probe),
-                    'ip_address': ip(unicode(entry['hop'])),
-                    'host_name': unicode(entry['hop']),
+                    'ip_address': ip(py23_compat.text_type(entry['hop'])),
+                    'host_name': py23_compat.text_type(entry['hop']),
                 }
                 ctr += 1
 
