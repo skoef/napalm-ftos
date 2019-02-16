@@ -410,12 +410,12 @@ class FTOSDriver(NetworkDriver):
         iface_entries = self._get_interfaces_detail()
         interfaces = {}
         key_map = [
-            'rx_octets',
+            ['rx_octets',  'rx_octets'],
             ['rx_unicast', 'rx_unicast_packets'],
             ['rx_mcast',   'rx_multicast_packets'],
             ['rx_bcast',   'rx_broadcast_packets'],
             ['rx_dcard',   'rx_discards'],
-            'tx_octets',
+            ['tx_octets',  'tx_octets'],
             ['tx_unicast', 'tx_unicast_packets'],
             ['tx_mcast',   'tx_multicast_packets'],
             ['tx_bcast',   'tx_broadcast_packets'],
@@ -427,16 +427,10 @@ class FTOSDriver(NetworkDriver):
                 'tx_errors': 0,  # unimplemented
             }
             for key in key_map:
-                if (isinstance(key, types.ListType)):
-                    src, dst = key
-                else:
-                    src = key
-                    dst = key
-
                 try:
-                    iface[dst] = int(entry[src])
+                    iface[key[1]] = int(entry[key[0]])
                 except ValueError:
-                    iface[dst] = 0
+                    iface[key[1]] = 0
 
             # add interface data to dict
             local_intf = canonical_interface_name(entry['iface_name'])
