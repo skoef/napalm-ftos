@@ -8,7 +8,8 @@ from napalm.base.test.getters import wrap_test_cases
 from napalm_ftos.utils import (
     canonical_interface_name,
     parse_uptime,
-    transform_lldp_capab
+    transform_lldp_capab,
+    prep_addr
 )
 
 
@@ -64,6 +65,20 @@ class TestGetter(BaseTestGetters):
         for t in tests:
             out = transform_lldp_capab(t[0])
             assert out == t[1]
+
+        return {}
+
+    @wrap_test_cases
+    def test_prep_addr(self, test_case):
+        """Test prep_addr."""
+        tests = [
+            ['eth0', 'ipv4', {'eth0': {'ipv4': {}}}],
+            ['eth1', 'ipv6', {'eth1': {'ipv6': {}}}],
+        ]
+
+        for t in tests:
+            out = prep_addr({}, t[0], t[1])
+            assert out == t[2]
 
         return {}
 

@@ -135,3 +135,12 @@ def transform_lldp_capab(capabilities):
             raise Exception('unhandled lldp capability: %s' % capabilities.strip().split(' ')[0])
 
     return capab
+
+
+def prep_addr(addr, iface, prot=u'ipv4'):
+    """Ensure specific structure for IP address dict."""
+    if iface not in addr:
+        addr[iface] = {}
+    if prot not in addr[iface]:
+        addr[iface][prot] = {}
+    return addr

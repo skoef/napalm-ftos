@@ -29,7 +29,8 @@ from napalm.base.exceptions import ConnectionException
 from napalm_ftos.utils import (
     canonical_interface_name,
     parse_uptime,
-    transform_lldp_capab
+    transform_lldp_capab,
+    prep_addr
 )
 
 
@@ -450,23 +451,31 @@ class FTOSDriver(NetworkDriver):
             # interface line
             m = re.search(r'^(\w+( \d+(\/\d+)?)?) is \w+', line)
             if m:
+                # capture interface name and move on to next line
                 iface = m.group(1)
                 continue
 
-            # address line
+            # look for IPv4 address line
             m = re.search(r'^Internet address is ([0-9\.]+)(?:\/(\d+))?', line)
-            if m:
-                if iface not in addr:
-                    addr[iface] = {u'ipv4': {}}
+            if not m:
+                continue
 
-                address = ip(m.group(1))
-                mask = 32
-                if m.group(2):
-                    mask = int(m.group(2))
-                    address = address.replace('/%d' % mask, '')
-                addr[iface][u'ipv4'][address] = {
-                    'prefix_length': mask
-                }
+            # prepare address dict for this interface
+            addr = prep_addr(addr, iface)
+
+            address = ip(m.group(1))
+
+            # try to get subnet mask from output as well
+            # otherwise assume /32
+            mask = 32
+            if m.group(2):
+                mask = int(m.group(2))
+                # remove subnet mask from address
+                address = address.replace('/%d' % mask, '')
+
+            addr[iface][u'ipv4'][address] = {
+                'prefix_length': mask
+            }
 
         ip6_cmd = "show ipv6 interface brief"
         ip6_res = self._send_command(ip6_cmd)
@@ -477,28 +486,34 @@ class FTOSDriver(NetworkDriver):
             # interface line
             m = re.search(r'^(\w+( \d+(\/\d+)?)?)\s+', line)
             if m:
+                # capture interface name and move on to next line
                 iface = m.group(1)
                 continue
 
-            # address line
+            # look for IPv6 address line
             m = re.search(r'^\s*([a-f0-9:]+)(?:\/(\d+))?', line)
-            if m:
-                if iface not in addr:
-                    addr[iface] = {u'ipv6': {}}
-                elif u'ipv6' not in addr[iface]:
-                    addr[iface][u'ipv6'] = {}
+            if not m:
+                continue
 
-                address = ip(m.group(1))
-                if m.group(2):
-                    mask = int(m.group(2))
-                    address = address.replace('/%d' % mask, '')
-                elif re.search(r'^fe80', address):
-                    mask = 64
-                else:
-                    mask = 128
-                addr[iface][u'ipv6'][address] = {
-                    'prefix_length': mask
-                }
+            # prepare address dict for this interface
+            addr = prep_addr(addr, iface, u'ipv6')
+
+            address = ip(m.group(1))
+
+            # try to get prefix length from output as well
+            # otherwise assume /128
+            preflen = 128
+            if m.group(2):
+                preflen = int(m.group(2))
+                # remove prefix length from address
+                address = address.replace('/%d' % preflen, '')
+            # for link-local addresses assume prefix length /64
+            elif re.search(r'^fe80', address):
+                preflen = 64
+
+            addr[iface][u'ipv6'][address] = {
+                'prefix_length': preflen
+            }
 
         return addr
 
