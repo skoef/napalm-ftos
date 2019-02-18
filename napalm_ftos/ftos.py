@@ -112,25 +112,36 @@ class FTOSDriver(NetworkDriver):
         neighbors = self._send_command(command)
         neighbors = textfsm_extractor(self, 'show_ip_bgp_neighbors', neighbors)
 
-        table = {}
+        table = {u'global': {}}
         for idx, entry in enumerate(neighbors):
             # TODO: couldn't detect VRF from output
             vrf = u'global'
 
-            if vrf not in table:
-                table[vrf] = {}
-
-            # set some flags
-            entry['up'] = (entry['connection_state'] == 'ESTABLISHED')
-            # unimplemented flags
-            for k in ['local_address_configured', 'multihop', 'multipath',
-                      'suppress_4byte_as', 'local_as_prepend', 'remove_private_as']:
-                entry[k] = False
-
-            # case some ip addresses
-            for k in ['local_address', 'router_id', 'remote_address']:
-                if len(entry[k].strip()) > 0:
-                    entry[k] = ip(entry[k])
+            neighbor = {
+                "up": (entry['connection_state'] == 'ESTABLISHED'),
+                "local_as": -1,  # unimplemented
+                "router_id": ip(entry['router_id']),
+                "local_address": py23_compat.text_type(entry['local_address']),
+                "routing_table": u'',  # unimplemented
+                "local_address_configured": False,  # unimplemented
+                "local_port": entry['local_port'],
+                "remote_address": ip(entry['remote_address']),
+                "multihop": False,  # unimplemented
+                "multipath": False,  # unimplemented
+                "remove_private_as": False,  # unimplemented
+                "import_policy": u'',  # unimplemented
+                "export_policy": u'',  # unimplemented
+                "connection_state": entry['connection_state'],
+                "previous_connection_state": u'',  # unimplemented
+                "last_event": u'',  # unimplemented
+                "suppress_4byte_as": False,  # unimplemented
+                "local_as_prepend": False,  # unimplemented
+                "configured_holdtime": -1,  # unimplemented
+                "configured_keepalive": -1,  # unimplemented
+                "active_prefix_count": -1,  # unimplemented
+                "received_prefix_count": -1,  # unimplemented
+                "suppressed_prefix_count": -1,  # unimplemented
+            }
 
             # cast some integers
             for k in ['remote_as', 'local_port', 'remote_port', 'input_messages',
@@ -139,30 +150,13 @@ class FTOSDriver(NetworkDriver):
                       'accepted_prefix_count', 'advertised_prefix_count',
                       'flap_count']:
                 try:
-                    entry[k] = int(entry[k])
+                    neighbor[k] = int(entry[k])
                 except ValueError:
-                    entry[k] = -1
+                    neighbor[k] = -1
 
-            # unimplemented integers
-            for k in ['local_as', 'configured_holdtime', 'configured_keepalive',
-                      'active_prefix_count', 'received_prefix_count',
-                      'suppressed_prefix_count']:
-                entry[k] = -1
-
-            # unimplemented strings
-            for k in ['export_policy', 'import_policy', 'last_event',
-                      'previous_connection_state', 'routing_table']:
-                entry[k] = u''
-
-            # make sure all strings are unicode
-            for k in entry.keys():
-                if isinstance(entry[k], py23_compat.string_types):
-                    entry[k] = py23_compat.text_type(entry[k])
-
-            # add neighbor to table
             if entry['remote_as'] not in table[vrf]:
-                table[vrf][entry['remote_as']] = []
-            table[vrf][entry['remote_as']].append(entry)
+                table[vrf][int(entry['remote_as'])] = []
+            table[vrf][int(entry['remote_as'])].append(neighbor)
 
         return table
 
